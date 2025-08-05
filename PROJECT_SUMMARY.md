@@ -162,6 +162,15 @@ GCT CoachHelper is a scientific coaching platform that transforms subjective cli
 - **Audio Transcription**: Live session analysis
 - **Advanced Visualizations**: Derivative graphs, flow diagrams
 
+### AI/LLM Integration
+- **Multi-Provider Support**: OpenAI, Anthropic, Google, Custom endpoints
+- **Smart Assessment Analysis**: Automatic insights and summaries
+- **Live Coaching Suggestions**: Real-time AI-powered response options
+- **Pattern Recognition**: Predictive analytics across client base
+- **Automated Communications**: AI-drafted progress updates and messages
+- **Cost Management**: Usage tracking and budget controls
+- **Privacy-First Design**: PII removal and secure processing
+
 ---
 
 ## Success Metrics
