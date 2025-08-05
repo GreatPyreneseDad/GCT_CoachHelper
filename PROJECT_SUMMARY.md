@@ -141,6 +141,29 @@ GCT CoachHelper is a scientific coaching platform that transforms subjective cli
 
 ---
 
+## Enhanced Features (Post-Initial Documentation)
+
+### Real-Time Coherence Monitoring
+- **Coherence Derivative Tracking**: Monitor rate of change during sessions
+- **Conversation Flow Analysis**: Track coherence across exchanges
+- **AI Interaction Monitoring**: Analyze client-AI tool interactions
+- **Pattern Recognition & Alerts**: Automatic breakthrough/stagnation detection
+- **Coach Performance Analytics**: Track intervention effectiveness
+
+### Rehabilitation Coaching Support
+- **Specialized Use Cases**: Physical recovery, addiction, trauma, grief
+- **Targeted Interventions**: 8 rehabilitation-specific protocols
+- **Custom Assessment Questions**: Recovery-focused metrics
+- **Progress Markers**: Rehabilitation milestones tracking
+
+### Technical Enhancements
+- **Browser Extension**: Client-side coherence monitoring
+- **WebSocket Integration**: Real-time data streaming
+- **Audio Transcription**: Live session analysis
+- **Advanced Visualizations**: Derivative graphs, flow diagrams
+
+---
+
 ## Success Metrics
 
 ### Beta Success Criteria

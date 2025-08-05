@@ -176,6 +176,46 @@
 
 **Key Insight**: Traditional approach focused on thoughts (ρ). GCT revealed action (q) and connection (f) were keys.
 
+## Rehabilitation Coaches: Recovery & Rebuilding
+
+### Client Profile: Michael's Post-Injury Recovery
+**Situation**: Former athlete recovering from traumatic injury, rebuilding identity and function
+
+**Initial Assessment**:
+- Ψ (Consistency): 0.2 - Lost all routines, identity crisis
+- ρ (Wisdom): 0.5 - Past athletic discipline but new territory
+- q (Activation): 0.1 - Fear of re-injury, learned helplessness
+- f (Belonging): 0.3 - Lost athletic community, family stressed
+
+**Coaching Journey**:
+1. **Month 1**: Rebuild Ψ - Micro-habits within physical limits
+2. **Month 2**: Adapt ρ - Transfer athletic wisdom to recovery
+3. **Month 3**: Gentle q - Graduated exposure to movement
+4. **Month 4**: New f - Recovery community + adapted sports
+
+**Results**: Coherence from 0.28 to 0.65, returned to modified sport
+
+**Key Insight**: Recovery isn't just physical - coherence tracking revealed identity reconstruction was key.
+
+### Client Profile: Susan's Addiction Recovery
+**Situation**: 6 months sober, building new life structure
+
+**Initial Assessment**:
+- Ψ (Consistency): 0.3 - Old patterns broken, new ones fragile
+- ρ (Wisdom): 0.8 - Deeply understands addiction patterns
+- q (Activation): 0.4 - Some action but fear of failure
+- f (Belonging): 0.6 - Strong recovery community
+
+**Coaching Journey**:
+1. **Month 1**: Strengthen Ψ - Daily recovery rituals
+2. **Month 2**: Apply high ρ - Teach others in early recovery
+3. **Month 3**: Build q - Take on leadership roles
+4. **Month 4**: Expand f - Build non-recovery relationships
+
+**Results**: Sustained sobriety, coherence from 0.48 to 0.79
+
+**Key Insight**: High wisdom (ρ) from recovery work became foundation for helping others, creating positive spiral.
+
 ## Common Patterns Across Niches
 
 1. **Low Ψ undermines everything** - Most transformations start here
