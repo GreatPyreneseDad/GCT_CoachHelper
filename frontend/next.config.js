@@ -4,9 +4,6 @@ const nextConfig = {
   images: {
     domains: ['localhost', 'api.gctcoachhelper.com', 's3.amazonaws.com'],
   },
-  experimental: {
-    serverActions: true,
-  },
   async headers() {
     return [
       {

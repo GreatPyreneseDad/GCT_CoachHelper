@@ -29,11 +29,22 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile, credentials }) {
       // Handle sign in logic
       if (account?.provider === 'apple' || account?.provider === 'google') {
-        // Check if this is a new user or existing
-        // For now, we'll allow all sign ins
+        // Check if this is a new user registration or existing sign in
+        const isNewUser = !(await checkUserExists(user.email));
+        
+        if (isNewUser) {
+          // Store registration metadata in session for later processing
+          // This will be used in the jwt callback to set proper role and tenant
+          global.registrationMetadata = global.registrationMetadata || {};
+          global.registrationMetadata[user.email!] = {
+            timestamp: Date.now(),
+            provider: account.provider,
+          };
+        }
+        
         return true;
       }
       return false;
@@ -49,10 +60,26 @@ export const authOptions: NextAuthOptions = {
         token.email = user.email;
         token.name = user.name;
         
-        // Determine user role based on sign-up flow
-        // This would be set during the registration process
-        token.role = 'coach'; // Default for now
-        token.tenantId = generateTenantId(user.email);
+        // Check if this is a new registration
+        const registrationData = global.registrationMetadata?.[user.email!];
+        if (registrationData) {
+          // Get role from session storage or URL params
+          const sessionData = await getRegistrationSession(user.email!);
+          token.role = sessionData?.role || 'coach';
+          token.category = sessionData?.category;
+          token.coachCode = sessionData?.coachCode;
+          token.tenantId = sessionData?.role === 'coach' 
+            ? generateTenantId(user.email) 
+            : sessionData?.tenantId;
+          
+          // Clean up registration metadata
+          delete global.registrationMetadata[user.email!];
+        } else {
+          // Existing user - fetch their role from database
+          const userData = await getUserData(user.email!);
+          token.role = userData?.role || 'coach';
+          token.tenantId = userData?.tenantId || generateTenantId(user.email);
+        }
       }
 
       // Return previous token if the access token has not expired yet
@@ -80,9 +107,14 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // Redirect to onboarding for new users
+      // Handle OAuth callbacks
       if (url.includes('/api/auth/callback')) {
-        return `${baseUrl}/onboarding`;
+        // Check if this is a registration callback
+        if (url.includes('register-callback')) {
+          return `${baseUrl}/onboarding`;
+        }
+        // Default redirect for sign-in
+        return `${baseUrl}/dashboard`;
       }
       // Allows relative callback URLs
       if (url.startsWith('/')) return `${baseUrl}${url}`;
@@ -161,4 +193,47 @@ async function refreshGoogleAccessToken(token: any) {
     console.error('Error refreshing access token', error);
     return { ...token, error: 'RefreshAccessTokenError' };
   }
+}
+
+// Helper function to check if user exists (mock implementation)
+async function checkUserExists(email: string | null | undefined): Promise<boolean> {
+  if (!email) return false;
+  // In production, this would check your database
+  // For now, check localStorage for demo
+  if (typeof window !== 'undefined') {
+    const users = JSON.parse(localStorage.getItem('gct_users') || '[]');
+    return users.some((u: any) => u.email === email);
+  }
+  return false;
+}
+
+// Helper function to get registration session data
+async function getRegistrationSession(email: string): Promise<any> {
+  // In production, this would fetch from your session store
+  // For now, check sessionStorage for demo
+  if (typeof window !== 'undefined') {
+    const sessionKey = `registration_${email}`;
+    const data = sessionStorage.getItem(sessionKey);
+    if (data) {
+      sessionStorage.removeItem(sessionKey);
+      return JSON.parse(data);
+    }
+  }
+  return null;
+}
+
+// Helper function to get user data (mock implementation)
+async function getUserData(email: string): Promise<any> {
+  // In production, this would fetch from your database
+  // For now, check localStorage for demo
+  if (typeof window !== 'undefined') {
+    const users = JSON.parse(localStorage.getItem('gct_users') || '[]');
+    return users.find((u: any) => u.email === email);
+  }
+  return null;
+}
+
+// Declare global type for registration metadata
+declare global {
+  var registrationMetadata: Record<string, any>;
 }

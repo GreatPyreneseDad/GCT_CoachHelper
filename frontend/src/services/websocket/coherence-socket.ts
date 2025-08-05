@@ -36,11 +36,35 @@ export class CoherenceWebSocket extends EventEmitter {
 
   connect(): void {
     try {
+      // Check if WebSocket is available in the browser
+      if (typeof WebSocket === 'undefined') {
+        console.error('WebSocket is not supported in this environment');
+        this.emit('error', new Error('WebSocket not supported'));
+        return;
+      }
+      
+      // Only connect if URL is valid
+      if (!this.url || this.url === 'ws://localhost:3002') {
+        console.warn('WebSocket server not configured or not running. Real-time updates will be disabled.');
+        this.emit('error', new Error('WebSocket server not available'));
+        return;
+      }
+      
+      // Check if we're in a supported environment
+      if (typeof window === 'undefined') {
+        console.warn('WebSocket requires browser environment');
+        return;
+      }
+      
       this.ws = new WebSocket(this.url);
       this.setupEventHandlers();
     } catch (error) {
       console.error('WebSocket connection error:', error);
-      this.handleReconnect();
+      this.emit('error', error);
+      // Only attempt reconnect if not a configuration issue
+      if (this.url && this.url !== 'ws://localhost:3002') {
+        this.handleReconnect();
+      }
     }
   }
 
@@ -139,17 +163,28 @@ export class CoherenceWebSocket extends EventEmitter {
 
   private handleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error(`Failed to reconnect after ${this.maxReconnectAttempts} attempts`);
       this.emit('max_reconnect_attempts');
+      this.emit('connection_failed', {
+        attempts: this.reconnectAttempts,
+        lastError: 'Maximum reconnection attempts exceeded'
+      });
       return;
     }
 
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const delay = Math.min(
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
+      30000 // Max 30 seconds
+    );
 
-    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    this.emit('reconnecting', { attempt: this.reconnectAttempts, delay });
     
     setTimeout(() => {
-      this.connect();
+      if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+        this.connect();
+      }
     }, delay);
   }
 
@@ -222,18 +257,62 @@ import { useEffect, useState, useCallback } from 'react';
 export function useCoherenceSocket(url: string, authToken: string) {
   const [socket, setSocket] = useState<CoherenceWebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<CoherenceUpdate | null>(null);
   const [alerts, setAlerts] = useState<CoherenceAlert[]>([]);
+  const [error, setError] = useState<Error | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connecting' | 'connected' | 'disconnected' | 'failed' | 'reconnecting'
+  >('connecting');
 
   useEffect(() => {
+    // Skip WebSocket connection if URL is not configured
+    if (!url || url === 'ws://localhost:3002') {
+      console.info('WebSocket URL not configured. Real-time features will be disabled.');
+      setError(new Error('WebSocket server not configured'));
+      setConnectionStatus('failed');
+      return;
+    }
+    
     const ws = new CoherenceWebSocket(url, authToken);
     
-    ws.on('connected', () => setIsConnected(true));
-    ws.on('disconnected', () => setIsConnected(false));
+    ws.on('connected', () => {
+      setIsConnected(true);
+      setIsReconnecting(false);
+      setError(null);
+      setConnectionStatus('connected');
+    });
+    
+    ws.on('disconnected', () => {
+      setIsConnected(false);
+      setConnectionStatus('disconnected');
+    });
+    
+    ws.on('reconnecting', ({ attempt, delay }) => {
+      setIsReconnecting(true);
+      setConnectionStatus('reconnecting');
+      console.log(`Reconnecting... Attempt ${attempt} in ${delay}ms`);
+    });
+    
+    ws.on('connection_failed', ({ attempts, lastError }) => {
+      setIsConnected(false);
+      setIsReconnecting(false);
+      setConnectionStatus('failed');
+      setError(new Error(lastError));
+    });
+    
     ws.on('authenticated', () => console.log('WebSocket authenticated'));
+    
+    ws.on('error', (err: Error) => {
+      console.warn('WebSocket error:', err.message);
+      setError(err);
+      // Don't set connection status to failed on every error
+      // as it might be a temporary issue
+    });
     
     ws.on('coherence_update', (update: CoherenceUpdate) => {
       setLastUpdate(update);
+      setError(null); // Clear any previous errors on successful update
     });
     
     ws.on('coherence_alert', (alert: CoherenceAlert) => {
@@ -266,8 +345,11 @@ export function useCoherenceSocket(url: string, authToken: string) {
 
   return {
     isConnected,
+    isReconnecting,
+    connectionStatus,
     lastUpdate,
     alerts,
+    error,
     subscribeToClient,
     unsubscribeFromClient,
     subscribeToAllClients,
