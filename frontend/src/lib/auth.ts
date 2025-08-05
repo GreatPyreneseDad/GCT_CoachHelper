@@ -1,11 +1,10 @@
 import { NextAuthOptions } from 'next-auth';
 import AppleProvider from 'next-auth/providers/apple';
 import GoogleProvider from 'next-auth/providers/google';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import { prisma } from './prisma';
+import { createPrivateKey } from 'crypto';
 
+// For development, we'll use JWT strategy instead of database adapter
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     AppleProvider({
       clientId: process.env.APPLE_CLIENT_ID!,
