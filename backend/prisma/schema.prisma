@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User roles enum
+enum Role {
+  COACH
+  CLIENT
+  ADMIN
+}
+
+// Subscription status
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+}
+
+// Assessment status
+enum AssessmentStatus {
+  DRAFT
+  COMPLETED
+  ARCHIVED
+}
+
+// User model
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  hashedPassword    String?   // For email/password auth
+  role              Role
+  tenantId          String
+  category          String?   // Coach category (life, business, health, etc.)
+  profileImageUrl   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  emailVerified     DateTime?
+  lastLoginAt       DateTime?
+  
+  // OAuth providers
+  oauthProviders    OAuthProvider[]
+  
+  // Relationships
+  coachProfile      Coach?
+  clientProfile     Client?
+  sessions          Session[]
+  refreshTokens     RefreshToken[]
+  
+  @@index([email])
+  @@index([tenantId])
+}
+
+// OAuth provider accounts
+model OAuthProvider {
+  id                String  @id @default(cuid())
+  userId            String
+  provider          String  // google, apple
+  providerAccountId String
+  accessToken       String? @db.Text
+  refreshToken      String? @db.Text
+  expiresAt         Int?
+  createdAt         DateTime @default(now())
+  
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// Coach-specific profile
+model Coach {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  bio               String?  @db.Text
+  specializations   String[] // Array of specialization tags
+  yearsExperience   Int?
+  certifications    String[]
+  hourlyRate        Float?
+  currency          String   @default("USD")
+  timezone          String   @default("UTC")
+  isAvailable       Boolean  @default(true)
+  
+  // Subscription info
+  stripeCustomerId  String?  @unique
+  subscriptionId    String?
+  subscriptionStatus SubscriptionStatus?
+  subscriptionEndDate DateTime?
+  
+  // Settings
+  notificationSettings Json?
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clients           Client[]
+  appointments      Appointment[]
+  interventions     Intervention[]
+  
+  @@index([userId])
+}
+
+// Client-specific profile
+model Client {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  coachId           String
+  inviteCode        String   @unique @default(cuid())
+  joinedAt          DateTime @default(now())
+  
+  // Coherence tracking
+  currentCoherence  Float    @default(50)
+  coherenceHistory  Json[]   // Array of {timestamp, score, derivative}
+  lastAssessmentAt  DateTime?
+  
+  // Progress tracking
+  goals             String[]
+  notes             String?  @db.Text
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach             Coach    @relation(fields: [coachId], references: [id])
+  assessments       Assessment[]
+  appointments      Appointment[]
+  coherenceRecords  CoherenceRecord[]
+  interventions     ClientIntervention[]
+  
+  @@index([userId])
+  @@index([coachId])
+  @@index([inviteCode])
+}
+
+// Assessment model
+model Assessment {
+  id                String   @id @default(cuid())
+  clientId          String
+  type              String   // initial, quick_checkin, deep_dive
+  status            AssessmentStatus @default(DRAFT)
+  
+  // Assessment data
+  questions         Json     // Array of questions with answers
+  scores            Json     // Dimension scores
+  overallCoherence  Float?
+  derivative        Float?   // Rate of change
+  
+  // Metadata
+  completedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  client            Client   @relation(fields: [clientId], references: [id])
+  
+  @@index([clientId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Real-time coherence records
+model CoherenceRecord {
+  id                String   @id @default(cuid())
+  clientId          String
+  score             Float
+  derivative        Float
+  dimensions        Json     // Individual dimension scores
+  timestamp         DateTime @default(now())
+  
+  // Trigger info
+  triggerType       String?  // assessment, intervention, manual
+  triggerId         String?  // ID of the trigger
+  
+  client            Client   @relation(fields: [clientId], references: [id])
+  
+  @@index([clientId])
+  @@index([timestamp])
+}
+
+// Appointments/Sessions
+model Appointment {
+  id                String   @id @default(cuid())
+  coachId           String
+  clientId          String
+  scheduledAt       DateTime
+  duration          Int      // in minutes
+  status            String   // scheduled, completed, canceled
+  
+  // Session data
+  notes             String?  @db.Text
+  coherenceBefore   Float?
+  coherenceAfter    Float?
+  
+  // Meeting info
+  meetingUrl        String?
+  calendarEventId   String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  coach             Coach    @relation(fields: [coachId], references: [id])
+  client            Client   @relation(fields: [clientId], references: [id])
+  
+  @@index([coachId])
+  @@index([clientId])
+  @@index([scheduledAt])
+}
+
+// Intervention library
+model Intervention {
+  id                String   @id @default(cuid())
+  coachId           String
+  name              String
+  description       String   @db.Text
+  category          String   // breathing, meditation, movement, etc.
+  targetDimensions  String[] // Which coherence dimensions it targets
+  
+  // Instructions
+  instructions      Json     // Structured intervention steps
+  duration          Int?     // Expected duration in minutes
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  coach             Coach    @relation(fields: [coachId], references: [id])
+  clientInterventions ClientIntervention[]
+  
+  @@index([coachId])
+  @@index([category])
+}
+
+// Client-specific intervention tracking
+model ClientIntervention {
+  id                String   @id @default(cuid())
+  clientId          String
+  interventionId    String
+  assignedAt        DateTime @default(now())
+  completedAt       DateTime?
+  
+  // Effectiveness tracking
+  coherenceBefore   Float?
+  coherenceAfter    Float?
+  clientFeedback    String?  @db.Text
+  
+  client            Client   @relation(fields: [clientId], references: [id])
+  intervention      Intervention @relation(fields: [interventionId], references: [id])
+  
+  @@index([clientId])
+  @@index([interventionId])
+}
+
+// Session management
+model Session {
+  id                String   @id @default(cuid())
+  userId            String
+  token             String   @unique
+  ipAddress         String?
+  userAgent         String?
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+}
+
+// Refresh tokens for JWT
+model RefreshToken {
+  id                String   @id @default(cuid())
+  userId            String
+  token             String   @unique
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+}
