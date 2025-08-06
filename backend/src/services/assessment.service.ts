@@ -1,13 +1,14 @@
 import { prisma } from '../utils/prisma';
 import { AssessmentStatus } from '@prisma/client';
-import { z } from 'zod';
+import { calculateGCTCoherence } from '../utils/gct-scoring';
+import { GCT_INITIAL_ASSESSMENT, GCT_QUICK_CHECKIN } from '../data/gct-assessment-questions';
 
 // Assessment question types
 export interface AssessmentQuestion {
   id: string;
   dimension: string;
   text: string;
-  type: 'scale' | 'multiple_choice' | 'text';
+  type: 'scale' | 'multiple_choice' | 'text' | 'frequency';
   options?: string[];
   minValue?: number;
   maxValue?: number;
@@ -22,221 +23,69 @@ export interface AssessmentResponse {
 
 // Coherence dimensions based on GCT theory
 export const COHERENCE_DIMENSIONS = {
-  physical: 'Physical Coherence',
-  emotional: 'Emotional Coherence',
-  mental: 'Mental Coherence',
-  social: 'Social Coherence',
-  spiritual: 'Spiritual Coherence',
+  psi: 'Internal Consistency (Ψ)',
+  rho: 'Accumulated Wisdom (ρ)',
+  q: 'Moral Activation',
+  f: 'Social Belonging',
 };
 
-// Initial assessment questions
-export const INITIAL_ASSESSMENT_QUESTIONS: AssessmentQuestion[] = [
-  // Physical Coherence
-  {
-    id: 'phys_1',
-    dimension: 'physical',
-    text: 'How would you rate your overall energy levels throughout the day?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-  {
-    id: 'phys_2',
-    dimension: 'physical',
-    text: 'How consistent is your sleep schedule?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.8,
-  },
-  {
-    id: 'phys_3',
-    dimension: 'physical',
-    text: 'How satisfied are you with your physical health?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.9,
-  },
-
-  // Emotional Coherence
-  {
-    id: 'emot_1',
-    dimension: 'emotional',
-    text: 'How well do you manage stress in your daily life?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-  {
-    id: 'emot_2',
-    dimension: 'emotional',
-    text: 'How often do you experience emotional balance?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.9,
-  },
-  {
-    id: 'emot_3',
-    dimension: 'emotional',
-    text: 'How connected do you feel to your emotions?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.8,
-  },
-
-  // Mental Coherence
-  {
-    id: 'ment_1',
-    dimension: 'mental',
-    text: 'How clear and focused is your thinking?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-  {
-    id: 'ment_2',
-    dimension: 'mental',
-    text: 'How well do you handle complex problems?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.9,
-  },
-  {
-    id: 'ment_3',
-    dimension: 'mental',
-    text: 'How satisfied are you with your decision-making abilities?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.8,
-  },
-
-  // Social Coherence
-  {
-    id: 'soc_1',
-    dimension: 'social',
-    text: 'How satisfied are you with your relationships?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-  {
-    id: 'soc_2',
-    dimension: 'social',
-    text: 'How well do you communicate with others?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.9,
-  },
-  {
-    id: 'soc_3',
-    dimension: 'social',
-    text: 'How supported do you feel by your community?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.8,
-  },
-
-  // Spiritual Coherence
-  {
-    id: 'spir_1',
-    dimension: 'spiritual',
-    text: 'How aligned do you feel with your life purpose?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-  {
-    id: 'spir_2',
-    dimension: 'spiritual',
-    text: 'How connected do you feel to something greater than yourself?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.9,
-  },
-  {
-    id: 'spir_3',
-    dimension: 'spiritual',
-    text: 'How much meaning do you find in your daily activities?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 0.8,
-  },
-];
-
-// Quick check-in questions (subset)
-export const QUICK_CHECKIN_QUESTIONS: AssessmentQuestion[] = [
-  {
-    id: 'quick_1',
-    dimension: 'overall',
-    text: 'How coherent do you feel overall today?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-  {
-    id: 'quick_2',
-    dimension: 'energy',
-    text: 'What is your energy level right now?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-  {
-    id: 'quick_3',
-    dimension: 'focus',
-    text: 'How clear is your mental focus?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-  {
-    id: 'quick_4',
-    dimension: 'emotion',
-    text: 'How balanced do you feel emotionally?',
-    type: 'scale',
-    minValue: 1,
-    maxValue: 10,
-    weight: 1.0,
-  },
-];
 
 export class AssessmentService {
   static async createAssessment(
     clientId: string,
     type: 'initial' | 'quick_checkin' | 'deep_dive'
   ): Promise<{ assessmentId: string; questions: AssessmentQuestion[] }> {
-    // Get questions based on type
+    // Get questions based on type - now using proper GCT questions
     let questions: AssessmentQuestion[];
     switch (type) {
       case 'initial':
-        questions = INITIAL_ASSESSMENT_QUESTIONS;
+        questions = GCT_INITIAL_ASSESSMENT.map(q => ({
+          id: q.id,
+          dimension: q.dimension,
+          text: q.text,
+          type: q.type,
+          options: q.options?.map(opt => opt.label),
+          minValue: q.type === 'scale' ? 1 : undefined,
+          maxValue: q.type === 'scale' ? 10 : undefined,
+          weight: q.weight,
+        }));
         break;
       case 'quick_checkin':
-        questions = QUICK_CHECKIN_QUESTIONS;
+        questions = GCT_QUICK_CHECKIN.map(q => ({
+          id: q.id,
+          dimension: q.dimension,
+          text: q.text,
+          type: q.type,
+          options: q.options?.map(opt => opt.label),
+          minValue: q.type === 'scale' ? 1 : undefined,
+          maxValue: q.type === 'scale' ? 10 : undefined,
+          weight: q.weight,
+        }));
         break;
       case 'deep_dive':
-        // For deep dive, we'd load more comprehensive questions
-        questions = [...INITIAL_ASSESSMENT_QUESTIONS];
+        // For deep dive, use all initial assessment questions
+        questions = GCT_INITIAL_ASSESSMENT.map(q => ({
+          id: q.id,
+          dimension: q.dimension,
+          text: q.text,
+          type: q.type,
+          options: q.options?.map(opt => opt.label),
+          minValue: q.type === 'scale' ? 1 : undefined,
+          maxValue: q.type === 'scale' ? 10 : undefined,
+          weight: q.weight,
+        }));
         break;
       default:
-        questions = QUICK_CHECKIN_QUESTIONS;
+        questions = GCT_QUICK_CHECKIN.map(q => ({
+          id: q.id,
+          dimension: q.dimension,
+          text: q.text,
+          type: q.type,
+          options: q.options?.map(opt => opt.label),
+          minValue: q.type === 'scale' ? 1 : undefined,
+          maxValue: q.type === 'scale' ? 10 : undefined,
+          weight: q.weight,
+        }));
     }
 
     // Create assessment record
@@ -245,7 +94,7 @@ export class AssessmentService {
         clientId,
         type,
         status: AssessmentStatus.DRAFT,
-        questions: questions,
+        questions: questions as any,
         scores: {},
       },
     });
@@ -279,7 +128,7 @@ export class AssessmentService {
 
     // Calculate scores
     const { coherenceScore, dimensionScores } = this.calculateCoherence(
-      assessment.questions as AssessmentQuestion[],
+      assessment.questions as any as AssessmentQuestion[],
       responses
     );
 
@@ -336,45 +185,41 @@ export class AssessmentService {
     coherenceScore: number;
     dimensionScores: Record<string, number>;
   } {
-    const dimensionScores: Record<string, number> = {};
-    const dimensionWeights: Record<string, number> = {};
-
-    // Group responses by dimension
-    for (const response of responses) {
+    // Convert responses to format expected by GCT scoring
+    const gctResponses = responses.map(response => {
       const question = questions.find(q => q.id === response.questionId);
-      if (!question || question.type !== 'scale') continue;
-
-      const dimension = question.dimension;
-      const normalizedScore = (Number(response.value) - 1) / 9 * 100; // Convert 1-10 to 0-100
-      const weight = question.weight || 1.0;
-
-      if (!dimensionScores[dimension]) {
-        dimensionScores[dimension] = 0;
-        dimensionWeights[dimension] = 0;
+      
+      // Handle multiple choice responses
+      let value = response.value;
+      if (question?.type === 'multiple_choice' && question.options) {
+        // Find the score for this option from either assessment type
+        const gctQuestion = GCT_INITIAL_ASSESSMENT.find(q => q.id === response.questionId) || 
+                           GCT_QUICK_CHECKIN.find(q => q.id === response.questionId);
+        const selectedOption = gctQuestion?.options?.find(opt => opt.label === response.value);
+        value = selectedOption?.score || 0.5;
       }
+      
+      return {
+        questionId: response.questionId,
+        value: typeof value === 'number' ? value : parseFloat(String(value)),
+        dimension: question?.dimension || 'psi',
+        questionType: question?.type,
+        weight: question?.weight,
+      };
+    });
 
-      dimensionScores[dimension] += normalizedScore * weight;
-      dimensionWeights[dimension] += weight;
-    }
-
-    // Calculate weighted average for each dimension
-    for (const dimension in dimensionScores) {
-      if (dimensionWeights[dimension] > 0) {
-        dimensionScores[dimension] /= dimensionWeights[dimension];
-      }
-    }
-
-    // Calculate overall coherence score (average of all dimensions)
-    const dimensionValues = Object.values(dimensionScores);
-    const coherenceScore = dimensionValues.length > 0
-      ? dimensionValues.reduce((sum, score) => sum + score, 0) / dimensionValues.length
-      : 50; // Default to 50 if no valid responses
+    // Get previous scores for derivative calculation
+    // For now, we'll skip derivative calculation in this method
+    const result = calculateGCTCoherence(gctResponses);
 
     return {
-      coherenceScore: Math.round(coherenceScore),
-      dimensionScores: Object.fromEntries(
-        Object.entries(dimensionScores).map(([k, v]) => [k, Math.round(v)])
-      ),
+      coherenceScore: result.percentage,
+      dimensionScores: {
+        psi: result.dimensions.psi,
+        rho: result.dimensions.rho,
+        q: result.dimensions.q,
+        f: result.dimensions.f,
+      },
     };
   }
 
@@ -389,41 +234,26 @@ export class AssessmentService {
       take: 10,
     });
 
-    if (previousRecords.length < 2) {
+    if (previousRecords.length < 1) {
       return 0; // Not enough data for derivative
     }
 
-    // Calculate rate of change over the last week
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-    const recentRecords = previousRecords.filter(
-      record => record.timestamp >= oneWeekAgo
-    );
-
-    if (recentRecords.length < 2) {
-      // Use all available records if less than a week of data
-      const oldest = previousRecords[previousRecords.length - 1];
-      const timeDiffWeeks = (Date.now() - oldest.timestamp.getTime()) / (1000 * 60 * 60 * 24 * 7);
-      return (currentScore - oldest.score) / timeDiffWeeks / 100; // Convert to decimal per week
-    }
-
-    // Linear regression to find trend
-    const points = recentRecords.map(record => ({
-      x: (Date.now() - record.timestamp.getTime()) / (1000 * 60 * 60 * 24), // Days ago
-      y: record.score,
+    // Convert to format expected by GCT scoring
+    const previousScores = previousRecords.map(record => ({
+      score: record.score,
+      timestamp: record.timestamp,
     }));
 
-    const n = points.length;
-    const sumX = points.reduce((sum, p) => sum + p.x, 0);
-    const sumY = points.reduce((sum, p) => sum + p.y, 0);
-    const sumXY = points.reduce((sum, p) => sum + p.x * p.y, 0);
-    const sumX2 = points.reduce((sum, p) => sum + p.x * p.x, 0);
+    // Add current score to the list
+    previousScores.unshift({
+      score: currentScore,
+      timestamp: new Date(),
+    });
 
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    // Use GCT scoring's derivative calculation
+    const result = calculateGCTCoherence([], previousScores);
     
-    // Convert daily slope to weekly percentage
-    return slope * 7 / 100;
+    return result.derivative || 0;
   }
 
   static async getAssessmentHistory(
