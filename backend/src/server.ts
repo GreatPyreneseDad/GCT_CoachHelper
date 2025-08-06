@@ -51,6 +51,8 @@ const authLimiter = rateLimit({
 app.use('/api/auth', authLimiter);
 
 // Body parsing middleware
+// Stripe webhook needs raw body
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
