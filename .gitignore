@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.env
+.env.local
+.env.production
+*.log
+.DS_Store
+coverage/
+.nyc_output/
+.vscode/
+.idea/
+*.swp
+*.swo
+.eslintcache
+.cache/
+dist/
+remix-knowledge-base/
