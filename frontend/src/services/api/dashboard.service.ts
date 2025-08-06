@@ -56,14 +56,17 @@ export const dashboardService = {
     });
   },
 
-  async createInviteCode() {
+  async createClientInvite(email?: string, name?: string) {
     const token = await this.getAuthToken();
     
-    return apiClient.post('/clients/invite', null, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    return apiClient.post('/clients/invite', 
+      { email, name },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
   },
 
   // Helper to get auth token from session/storage

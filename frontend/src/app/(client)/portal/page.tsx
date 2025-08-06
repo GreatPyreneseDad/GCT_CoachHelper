@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { clientService } from '@/services/api/client.service';
 import { AssessmentFlow } from '@/components/assessment/assessment-flow';
+import { CoherenceProgressChart } from '@/components/charts/coherence-progress-chart';
+import { DimensionRadarChart } from '@/components/charts/dimension-radar-chart';
 import { 
   Activity, 
   TrendingUp, 
@@ -265,6 +267,21 @@ export default function ClientPortalPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Progress Chart */}
+      {progress && progress.dataPoints.length > 0 && (
+        <CoherenceProgressChart 
+          data={progress.dataPoints} 
+          period={progress.period}
+        />
+      )}
+
+      {/* Dimension Radar */}
+      {coherence.dimensions && Object.keys(coherence.dimensions).length > 0 && (
+        <DimensionRadarChart 
+          dimensions={coherence.dimensions}
+        />
       )}
     </div>
   );

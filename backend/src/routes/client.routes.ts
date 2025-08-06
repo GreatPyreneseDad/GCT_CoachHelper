@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate, requireCoach, requireClient } from '../middleware/auth.middleware';
 import { prisma } from '../utils/prisma';
 import asyncHandler from 'express-async-handler';
+import { EmailService } from '../services/email.service';
 
 const router = Router();
 
@@ -285,6 +286,7 @@ router.post('/invite', authenticate, requireCoach, asyncHandler(async (req: any,
   
   const coach = await prisma.coach.findUnique({
     where: { userId: req.user.userId },
+    include: { user: true },
   });
 
   if (!coach) {
@@ -293,14 +295,62 @@ router.post('/invite', authenticate, requireCoach, asyncHandler(async (req: any,
   }
 
   // Generate unique invite code
-  const inviteCode = generateInviteCode();
+  const inviteCode = `${coach.user.name.substring(0, 3).toUpperCase()}-${generateInviteCode()}`;
   
-  // TODO: Send invite email
-  // await EmailService.sendClientInvite(email, name, coach, inviteCode);
+  // Create pending client record
+  const pendingClient = await prisma.client.create({
+    data: {
+      coachId: coach.id,
+      inviteCode,
+      status: 'INVITED',
+      currentCoherence: 50, // Default starting coherence
+      goals: [],
+      // User will be linked when they accept the invite
+    },
+  });
+
+  // Send invite email if email provided
+  if (email && name) {
+    await EmailService.sendClientInvite(email, name, coach.user.name || 'Your coach', inviteCode);
+  }
 
   res.json({
     inviteCode,
-    inviteUrl: `${process.env.FRONTEND_URL}/client/register?code=${inviteCode}`,
+    inviteUrl: `${process.env.FRONTEND_URL}/client/join?code=${inviteCode}`,
+    message: email ? 'Invite sent successfully' : 'Invite created successfully',
+  });
+}));
+
+// Validate invite code
+router.get('/validate-invite', asyncHandler(async (req, res) => {
+  const { code } = req.query;
+
+  if (!code) {
+    res.status(400).json({ valid: false, error: 'Invite code required' });
+    return;
+  }
+
+  const client = await prisma.client.findFirst({
+    where: { 
+      inviteCode: code as string,
+      status: 'INVITED',
+    },
+    include: {
+      coach: {
+        include: { user: true },
+      },
+    },
+  });
+
+  if (!client) {
+    res.json({ valid: false });
+    return;
+  }
+
+  res.json({
+    valid: true,
+    coachName: client.coach.user.name || 'Your coach',
+    coachEmail: client.coach.user.email,
   });
 }));
 
