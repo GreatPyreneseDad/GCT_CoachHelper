@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireCoach } from '../middleware/auth.middleware';
+import { authenticate, requireCoach, requireClient } from '../middleware/auth.middleware';
 import { prisma } from '../utils/prisma';
 import asyncHandler from 'express-async-handler';
 
@@ -120,7 +120,118 @@ router.get('/dashboard', authenticate, requireCoach, asyncHandler(async (req: an
   });
 }));
 
-// Get single client details
+// Get current client's coherence data (for client portal)
+router.get('/me/coherence', authenticate, requireClient, asyncHandler(async (req: any, res) => {
+  const client = await prisma.client.findUnique({
+    where: { userId: req.user.userId },
+    include: {
+      coherenceRecords: {
+        orderBy: { timestamp: 'desc' },
+        take: 1,
+      },
+      assessments: {
+        where: { status: 'COMPLETED' },
+        orderBy: { completedAt: 'desc' },
+        take: 1,
+      },
+    },
+  });
+
+  if (!client) {
+    res.status(404).json({ error: 'Client profile not found' });
+    return;
+  }
+
+  // Get dimension scores from latest assessment
+  let dimensions = {};
+  if (client.assessments[0]?.scores) {
+    dimensions = client.assessments[0].scores;
+  }
+
+  // Calculate derivative
+  let derivative = 0;
+  if (client.coherenceRecords.length > 0) {
+    const recent = client.coherenceRecords[0];
+    derivative = recent.derivative;
+  }
+
+  res.json({
+    overall: client.currentCoherence,
+    dimensions,
+    derivative,
+    lastAssessment: client.lastAssessmentAt,
+    status: getClientStatus(client.currentCoherence, derivative),
+  });
+}));
+
+// Get client's progress data
+router.get('/me/progress', authenticate, requireClient, asyncHandler(async (req: any, res) => {
+  const { period = '30d' } = req.query;
+  
+  const client = await prisma.client.findUnique({
+    where: { userId: req.user.userId },
+  });
+
+  if (!client) {
+    res.status(404).json({ error: 'Client profile not found' });
+    return;
+  }
+
+  // Calculate date range
+  const endDate = new Date();
+  const startDate = new Date();
+  
+  switch (period) {
+    case '7d':
+      startDate.setDate(startDate.getDate() - 7);
+      break;
+    case '30d':
+      startDate.setDate(startDate.getDate() - 30);
+      break;
+    case '90d':
+      startDate.setDate(startDate.getDate() - 90);
+      break;
+    default:
+      startDate.setDate(startDate.getDate() - 30);
+  }
+
+  // Get coherence records for the period
+  const records = await prisma.coherenceRecord.findMany({
+    where: {
+      clientId: client.id,
+      timestamp: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    orderBy: { timestamp: 'asc' },
+  });
+
+  // Format for charting
+  const dataPoints = records.map(record => ({
+    date: record.timestamp,
+    score: record.score,
+    dimensions: record.dimensions,
+  }));
+
+  // Calculate summary statistics
+  const scores = records.map(r => r.score);
+  const summary = {
+    current: client.currentCoherence,
+    average: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0,
+    min: scores.length > 0 ? Math.min(...scores) : 0,
+    max: scores.length > 0 ? Math.max(...scores) : 0,
+    trend: calculateTrend(dataPoints),
+  };
+
+  res.json({
+    dataPoints,
+    summary,
+    period,
+  });
+}));
+
+// Get single client details (for coaches)
 router.get('/:clientId', authenticate, requireCoach, asyncHandler(async (req: any, res) => {
   const { clientId } = req.params;
 
@@ -170,6 +281,8 @@ router.get('/:clientId', authenticate, requireCoach, asyncHandler(async (req: an
 
 // Create invite code for new client
 router.post('/invite', authenticate, requireCoach, asyncHandler(async (req: any, res) => {
+  const { email, name } = req.body;
+  
   const coach = await prisma.coach.findUnique({
     where: { userId: req.user.userId },
   });
@@ -181,6 +294,9 @@ router.post('/invite', authenticate, requireCoach, asyncHandler(async (req: any,
 
   // Generate unique invite code
   const inviteCode = generateInviteCode();
+  
+  // TODO: Send invite email
+  // await EmailService.sendClientInvite(email, name, coach, inviteCode);
 
   res.json({
     inviteCode,
@@ -204,6 +320,22 @@ function generateInviteCode(): string {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
+}
+
+function calculateTrend(dataPoints: any[]): 'up' | 'down' | 'stable' {
+  if (dataPoints.length < 2) return 'stable';
+  
+  const firstHalf = dataPoints.slice(0, Math.floor(dataPoints.length / 2));
+  const secondHalf = dataPoints.slice(Math.floor(dataPoints.length / 2));
+  
+  const firstAvg = firstHalf.reduce((sum, p) => sum + p.score, 0) / firstHalf.length;
+  const secondAvg = secondHalf.reduce((sum, p) => sum + p.score, 0) / secondHalf.length;
+  
+  const difference = secondAvg - firstAvg;
+  
+  if (difference > 5) return 'up';
+  if (difference < -5) return 'down';
+  return 'stable';
 }
 
 export default router;
