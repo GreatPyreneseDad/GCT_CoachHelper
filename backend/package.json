@@ -9,6 +9,8 @@
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
     "test": "jest",
+    "test:payments": "tsx src/scripts/test-payments.ts",
+    "test:gct": "tsx src/scripts/test-gct-scoring.ts",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
