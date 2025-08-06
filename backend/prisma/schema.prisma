@@ -29,6 +29,14 @@ enum AssessmentStatus {
   ARCHIVED
 }
 
+// Client status
+enum ClientStatus {
+  INVITED
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 // User model
 model User {
   id                String    @id @default(cuid())
@@ -107,9 +115,10 @@ model Coach {
 // Client-specific profile
 model Client {
   id                String   @id @default(cuid())
-  userId            String   @unique
+  userId            String?  @unique
   coachId           String
-  inviteCode        String   @unique @default(cuid())
+  inviteCode        String?  @unique
+  status            ClientStatus @default(INVITED)
   joinedAt          DateTime @default(now())
   
   // Coherence tracking
@@ -121,7 +130,7 @@ model Client {
   goals             String[]
   notes             String?  @db.Text
   
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   coach             Coach    @relation(fields: [coachId], references: [id])
   assessments       Assessment[]
   appointments      Appointment[]

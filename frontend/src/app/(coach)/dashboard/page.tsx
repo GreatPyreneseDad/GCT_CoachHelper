@@ -22,6 +22,7 @@ import { dashboardService } from '@/services/api/dashboard.service';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { SubscriptionBanner } from '@/components/subscription-banner';
+import { InviteClientDialog } from '@/components/invite-client-dialog';
 
 function getTriageBadge(status: string) {
   const variants: Record<string, { color: string; icon: React.ReactNode }> = {
@@ -155,15 +156,18 @@ export default function DashboardPage() {
             Here's an overview of your coaching practice
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <InviteClientDialog />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -240,13 +244,8 @@ export default function DashboardPage() {
           {clients.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No clients yet. Invite your first client to get started!</p>
-              <Button 
-                className="mt-4"
-                onClick={() => router.push('/clients/invite')}
-              >
-                Invite Client
-              </Button>
+              <p className="mb-4">No clients yet. Invite your first client to get started!</p>
+              <InviteClientDialog />
             </div>
           ) : (
             <div className="space-y-4">

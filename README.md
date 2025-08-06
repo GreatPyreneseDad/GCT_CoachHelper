@@ -24,21 +24,68 @@ GCT CoachHelper transforms subjective coaching progress into objective, measurab
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Node.js 18+ 
+- PostgreSQL 15+
+- Redis (optional, for caching)
+- Stripe account (for payments)
+- SendGrid account (for emails)
+
+### Setup Instructions
+
 ```bash
 # Clone the repository
 git clone https://github.com/GreatPyreneseDad/GCT_CoachHelper.git
 cd GCT_CoachHelper
 
-# Install dependencies
+# Backend setup
+cd backend
 npm install
-
-# Set up environment
 cp .env.example .env
-# Edit .env with your database and API credentials
+# Edit .env with your credentials (see Environment Setup below)
 
-# Run development server
+# Run database migrations
+npx prisma migrate deploy
+npx prisma generate
+
+# Start backend server
+npm run dev
+
+# In a new terminal - Frontend setup
+cd ../frontend
+npm install
+cp .env.local.example .env.local
+# Edit .env.local with your API URL
+
+# Start frontend server
 npm run dev
 ```
+
+### Environment Setup
+
+**Backend (.env)**:
+```env
+DATABASE_URL=postgresql://user:pass@localhost:5432/gct_coachhelper
+JWT_SECRET=your-32-char-secret
+JWT_REFRESH_SECRET=your-32-char-refresh-secret
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+SENDGRID_API_KEY=SG...
+SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+FRONTEND_URL=http://localhost:3000
+```
+
+**Frontend (.env.local)**:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+NEXTAUTH_SECRET=your-nextauth-secret
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+### Test Credentials
+- **Test Coach**: coach@test.com / password123
+- **Test Client**: client@test.com / password123
+- **Stripe Test Card**: 4242 4242 4242 4242
 
 ## 📚 Documentation
 

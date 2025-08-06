@@ -128,6 +128,94 @@ export class EmailService {
       `,
       text: `${clientName}'s coherence has dropped to ${coherenceScore}% and needs attention.`,
     }),
+
+    paymentConfirmation: (
+      name: string,
+      plan: string,
+      amount: number
+    ): EmailTemplate => ({
+      subject: 'Payment Confirmed - GCT CoachHelper',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #333;">Payment Confirmed! 🎉</h1>
+          <p>Hi ${name},</p>
+          <p>Your payment has been successfully processed.</p>
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Plan:</strong> ${plan}</p>
+            <p style="margin: 5px 0;"><strong>Amount:</strong> $${amount.toFixed(2)}</p>
+            <p style="margin: 5px 0;"><strong>Status:</strong> Active</p>
+          </div>
+          <p>You now have full access to all ${plan} features.</p>
+          <a href="${process.env.FRONTEND_URL}/dashboard" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 6px;">Go to Dashboard</a>
+          <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            Thank you for choosing GCT CoachHelper!<br><br>
+            Best regards,<br>
+            The GCT CoachHelper Team
+          </p>
+        </div>
+      `,
+      text: `Your payment for ${plan} plan ($${amount.toFixed(2)}) has been confirmed.`,
+    }),
+
+    breakthroughNotification: (
+      coachName: string,
+      clientName: string,
+      dimension: string,
+      score: number
+    ): EmailTemplate => ({
+      subject: `🎉 ${clientName} just had a breakthrough!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #10B981;">Breakthrough Alert! 🎉</h1>
+          <p>Hi ${coachName},</p>
+          <p>Great news! ${clientName} just achieved a significant breakthrough in their ${dimension} dimension.</p>
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 5px 0;"><strong>Dimension:</strong> ${dimension}</p>
+            <p style="margin: 5px 0;"><strong>New Score:</strong> ${score}%</p>
+            <p style="margin: 5px 0;"><strong>Status:</strong> Breakthrough achieved!</p>
+          </div>
+          <p>This is a great opportunity to acknowledge their progress and build on this momentum.</p>
+          <a href="${process.env.FRONTEND_URL}/dashboard" style="display: inline-block; padding: 12px 24px; background-color: #10B981; color: white; text-decoration: none; border-radius: 6px;">View Client Progress</a>
+          <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            Keep up the great work!<br><br>
+            The GCT CoachHelper Team
+          </p>
+        </div>
+      `,
+      text: `${clientName} achieved a breakthrough in ${dimension} with a score of ${score}%!`,
+    }),
+
+    clientInvite: (
+      clientName: string,
+      coachName: string,
+      inviteCode: string
+    ): EmailTemplate => ({
+      subject: `${coachName} invited you to track your transformation`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #333;">You're Invited! 🌟</h1>
+          <p>Hi ${clientName},</p>
+          <p>${coachName} has invited you to join GCT CoachHelper to scientifically track your personal transformation journey.</p>
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 10px 0;"><strong>Your invite code:</strong> <code style="font-size: 18px; font-weight: bold;">${inviteCode}</code></p>
+          </div>
+          <p>With GCT CoachHelper, you'll be able to:</p>
+          <ul>
+            <li>Track your coherence score across multiple dimensions</li>
+            <li>See your progress visualized in real-time</li>
+            <li>Complete regular assessments to measure growth</li>
+            <li>Access personalized interventions and resources</li>
+          </ul>
+          <a href="${process.env.FRONTEND_URL}/client/join?code=${inviteCode}" style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 6px;">Accept Invitation</a>
+          <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            Looking forward to supporting your journey!<br><br>
+            Best regards,<br>
+            The GCT CoachHelper Team
+          </p>
+        </div>
+      `,
+      text: `${coachName} has invited you to join GCT CoachHelper. Your invite code is: ${inviteCode}`,
+    }),
   };
 
   // Send email method
@@ -261,6 +349,65 @@ export class EmailService {
     );
 
     await this.sendEmail(client.coach.user.email, template);
+  }
+
+  static async sendPaymentConfirmation(
+    userId: string,
+    plan: string,
+    amount: number
+  ): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) return;
+
+    const template = this.templates.paymentConfirmation(
+      user.name || 'there',
+      plan,
+      amount / 100 // Convert from cents
+    );
+    await this.sendEmail(user.email, template);
+  }
+
+  static async sendBreakthroughNotification(
+    clientId: string,
+    dimension: string,
+    score: number
+  ): Promise<void> {
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      include: {
+        user: true,
+        coach: {
+          include: { user: true },
+        },
+      },
+    });
+
+    if (!client) return;
+
+    const template = this.templates.breakthroughNotification(
+      client.coach.user.name || 'Coach',
+      client.user.name || 'Your client',
+      dimension,
+      Math.round(score)
+    );
+    await this.sendEmail(client.coach.user.email, template);
+  }
+
+  static async sendClientInvite(
+    email: string,
+    clientName: string,
+    coachName: string,
+    inviteCode: string
+  ): Promise<void> {
+    const template = this.templates.clientInvite(
+      clientName,
+      coachName,
+      inviteCode
+    );
+    await this.sendEmail(email, template);
   }
 
   // Batch email methods
