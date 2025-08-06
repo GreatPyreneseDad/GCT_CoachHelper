@@ -68,13 +68,7 @@ export const dashboardService = {
 
   // Helper to get auth token from session/storage
   async getAuthToken(): Promise<string> {
-    // In production, this would get the token from secure session storage
-    // For now, check sessionStorage or localStorage
-    if (typeof window !== 'undefined') {
-      const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
-      if (token) return token;
-    }
-    
-    throw new Error('No authentication token found');
+    const { AuthStorage } = await import('@/lib/auth-storage');
+    return AuthStorage.getValidToken();
   },
 };

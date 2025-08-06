@@ -1,281 +1,271 @@
 'use client';
 
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { clientService } from '@/services/api/client.service';
+import { AssessmentFlow } from '@/components/assessment/assessment-flow';
 import { 
-  Calendar,
-  TrendingUp,
-  Target,
-  MessageSquare,
-  FileText,
-  ChevronRight,
-  Brain,
-  Heart,
-  Users,
-  Zap
+  Activity, 
+  TrendingUp, 
+  Calendar, 
+  ClipboardCheck, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  AlertCircle,
+  BookOpen
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import Link from 'next/link';
+import { useState } from 'react';
+import { format } from 'date-fns';
 
-// Mock data for demonstration
-const clientData = {
-  name: 'Sarah',
-  coach: {
-    name: 'Transform Life Coaching',
-    nextSession: '2024-03-20T14:00:00',
-  },
-  coherence: {
-    overall: 67,
-    previousOverall: 55,
-    psi: 72,
-    rho: 61,
-    q: 55,
-    f: 85,
-    trend: 'improving' as const,
-  },
-  weeklyProgress: [
-    { week: 'W1', score: 45 },
-    { week: 'W2', score: 48 },
-    { week: 'W3', score: 55 },
-    { week: 'W4', score: 67 },
-  ],
-  recentInsights: [
-    {
-      id: '1',
-      date: '2024-03-15',
-      type: 'breakthrough',
-      message: 'Major breakthrough in activation dimension - took action on career goals',
-    },
-    {
-      id: '2',
-      date: '2024-03-10',
-      type: 'insight',
-      message: 'Identified pattern of self-doubt in morning routines',
-    },
-  ],
-  upcomingTasks: [
-    { id: '1', title: 'Complete weekly check-in', due: 'Today' },
-    { id: '2', title: 'Practice courage exercise', due: 'Tomorrow' },
-    { id: '3', title: 'Journal reflection on values', due: 'This week' },
-  ],
-};
+function CoherenceDisplay({ 
+  score, 
+  dimensions, 
+  derivative, 
+  status 
+}: { 
+  score: number; 
+  dimensions: Record<string, number>; 
+  derivative: number;
+  status: string;
+}) {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'critical': return 'text-red-600';
+      case 'warning': return 'text-yellow-600';
+      case 'thriving': return 'text-green-600';
+      case 'breakthrough': return 'text-purple-600';
+      default: return 'text-blue-600';
+    }
+  };
 
-export default function ClientPortalPage() {
-  const [selectedDimension, setSelectedDimension] = useState<string | null>(null);
-
-  const dimensions = [
-    { key: 'psi', name: 'Consistency', icon: Brain, value: clientData.coherence.psi, color: 'text-blue-600' },
-    { key: 'rho', name: 'Wisdom', icon: FileText, value: clientData.coherence.rho, color: 'text-purple-600' },
-    { key: 'q', name: 'Activation', icon: Zap, value: clientData.coherence.q, color: 'text-orange-600' },
-    { key: 'f', name: 'Belonging', icon: Users, value: clientData.coherence.f, color: 'text-green-600' },
-  ];
-
-  const getProgressColor = (value: number) => {
-    if (value >= 80) return 'text-green-600';
-    if (value >= 60) return 'text-blue-600';
-    if (value >= 40) return 'text-yellow-600';
-    return 'text-red-600';
+  const getDerivativeIcon = (derivative: number) => {
+    if (derivative > 0.01) return <ArrowUpRight className="h-4 w-4 text-green-600" />;
+    if (derivative < -0.01) return <ArrowDownRight className="h-4 w-4 text-red-600" />;
+    return <Activity className="h-4 w-4 text-gray-600" />;
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Welcome Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold">Welcome back, {clientData.name}!</h1>
-            <p className="text-muted-foreground mt-1">
-              Your journey with {clientData.coach.name}
-            </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Your Coherence Score</CardTitle>
+        <CardDescription>Current overall coherence and dimensional breakdown</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="text-center mb-6">
+          <div className="text-6xl font-bold mb-2">{Math.round(score)}%</div>
+          <div className="flex items-center justify-center gap-2">
+            {getDerivativeIcon(derivative)}
+            <span className="text-sm text-muted-foreground">
+              {derivative > 0 ? '+' : ''}{(derivative * 100).toFixed(1)}% /week
+            </span>
           </div>
-          <Button asChild>
-            <Link href="/portal/session/book">
-              <Calendar className="mr-2 h-4 w-4" />
-              Book Session
-            </Link>
-          </Button>
+          <div className={`mt-2 font-medium ${getStatusColor(status)}`}>
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </div>
         </div>
 
-        {/* Coherence Overview */}
+        {Object.keys(dimensions).length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-muted-foreground">Dimensions</h4>
+            {Object.entries(dimensions).map(([dimension, value]) => (
+              <div key={dimension} className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="capitalize">{dimension}</span>
+                  <span>{Math.round(Number(value))}%</span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${value}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ClientPortalSkeleton() {
+  return (
+    <div className="p-6 space-y-6">
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-24 w-32 mx-auto mb-4" />
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function ClientPortalPage() {
+  const [showAssessment, setShowAssessment] = useState(false);
+  
+  const { data: coherence, isLoading: coherenceLoading, refetch: refetchCoherence } = useQuery({
+    queryKey: ['client-coherence'],
+    queryFn: clientService.getMyCoherence,
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  const { data: progress } = useQuery({
+    queryKey: ['client-progress', '30d'],
+    queryFn: () => clientService.getMyProgress('30d'),
+  });
+
+  const { data: history } = useQuery({
+    queryKey: ['assessment-history'],
+    queryFn: clientService.getAssessmentHistory,
+  });
+
+  if (coherenceLoading) return <ClientPortalSkeleton />;
+
+  if (!coherence) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load your data. Please refresh and try again.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const lastAssessment = history?.assessments[0];
+  const daysSinceAssessment = lastAssessment?.completedAt 
+    ? Math.floor((Date.now() - new Date(lastAssessment.completedAt).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const handleAssessmentComplete = async (scores: any) => {
+    setShowAssessment(false);
+    await refetchCoherence();
+    // Show success message or navigate to results
+  };
+
+  if (showAssessment) {
+    return (
+      <div className="p-6">
+        <AssessmentFlow 
+          type="quick_checkin" 
+          onComplete={handleAssessmentComplete}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Coherence Display */}
+      <CoherenceDisplay 
+        score={coherence.overall}
+        dimensions={coherence.dimensions}
+        derivative={coherence.derivative}
+        status={coherence.status}
+      />
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Your Coherence Score</CardTitle>
-            <CardDescription>
-              Overall measure of your life alignment and progress
-            </CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Take Assessment</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-baseline gap-2">
-                <span className={cn("text-5xl font-bold", getProgressColor(clientData.coherence.overall))}>
-                  {clientData.coherence.overall}%
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {clientData.coherence.overall > clientData.coherence.previousOverall ? (
-                    <span className="text-green-600">
-                      +{clientData.coherence.overall - clientData.coherence.previousOverall}% this month
-                    </span>
-                  ) : (
-                    'this month'
-                  )}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-                <span className="text-sm font-medium">Improving</span>
-              </div>
-            </div>
-            <Progress value={clientData.coherence.overall} className="h-3" />
-            
-            {/* Dimension Breakdown */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              {dimensions.map((dim) => {
-                const Icon = dim.icon;
-                return (
-                  <Card 
-                    key={dim.key}
-                    className={cn(
-                      "cursor-pointer transition-all hover:shadow-md",
-                      selectedDimension === dim.key && "ring-2 ring-primary"
-                    )}
-                    onClick={() => setSelectedDimension(dim.key === selectedDimension ? null : dim.key)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <Icon className={cn("h-5 w-5", dim.color)} />
-                        <span className="text-2xl font-bold">{dim.value}%</span>
-                      </div>
-                      <p className="text-sm font-medium">{dim.name}</p>
-                      <Progress value={dim.value} className="h-1 mt-2" />
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              {daysSinceAssessment !== null 
+                ? `Last assessment: ${daysSinceAssessment} days ago`
+                : 'No assessments yet'
+              }
+            </p>
+            <Button 
+              className="w-full" 
+              size="sm"
+              onClick={() => setShowAssessment(true)}
+            >
+              <ClipboardCheck className="mr-2 h-4 w-4" />
+              Start Check-in
+            </Button>
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Next Session */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Next Session</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">
-                      {new Date(clientData.coach.nextSession).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(clientData.coach.nextSession).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                  <Calendar className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <Button variant="outline" className="w-full" asChild>
-                  <Link href="/portal/sessions">
-                    View All Sessions
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start" asChild>
-                <Link href="/portal/assessment/weekly">
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Take Weekly Check-in
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full justify-start" asChild>
-                <Link href="/portal/progress">
-                  <TrendingUp className="mr-2 h-4 w-4" />
-                  View Progress Report
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full justify-start" asChild>
-                <Link href="/portal/resources">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Resources & Exercises
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Tasks */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Tasks</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {clientData.upcomingTasks.map((task) => (
-                  <div key={task.id} className="flex items-start gap-3">
-                    <div className="h-2 w-2 rounded-full bg-primary mt-2" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{task.title}</p>
-                      <p className="text-xs text-muted-foreground">{task.due}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Insights */}
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Insights</CardTitle>
-            <CardDescription>
-              Key moments and breakthroughs from your journey
-            </CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Book Session</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {clientData.recentInsights.map((insight) => (
-                <div key={insight.id} className="flex gap-4">
-                  <div className={cn(
-                    "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                    insight.type === 'breakthrough' ? 'bg-green-100' : 'bg-blue-100'
-                  )}>
-                    {insight.type === 'breakthrough' ? (
-                      <Zap className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <Heart className="h-5 w-5 text-blue-600" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm">{insight.message}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(insight.date).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Schedule time with your coach
+            </p>
+            <Button className="w-full" size="sm" variant="outline">
+              <Calendar className="mr-2 h-4 w-4" />
+              View Calendar
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Resources</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              Interventions and exercises
+            </p>
+            <Button className="w-full" size="sm" variant="outline">
+              <BookOpen className="mr-2 h-4 w-4" />
+              Browse Library
+            </Button>
           </CardContent>
         </Card>
       </div>
+
+      {/* Progress Summary */}
+      {progress && (
+        <Card>
+          <CardHeader>
+            <CardTitle>30-Day Progress</CardTitle>
+            <CardDescription>Your coherence journey over the past month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold">{Math.round(progress.summary.current)}%</div>
+                <div className="text-sm text-muted-foreground">Current</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{Math.round(progress.summary.average)}%</div>
+                <div className="text-sm text-muted-foreground">Average</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{Math.round(progress.summary.max)}%</div>
+                <div className="text-sm text-muted-foreground">Peak</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold flex items-center justify-center">
+                  {progress.summary.trend === 'up' && <TrendingUp className="h-5 w-5 text-green-600" />}
+                  {progress.summary.trend === 'down' && <ArrowDownRight className="h-5 w-5 text-red-600" />}
+                  {progress.summary.trend === 'stable' && <Activity className="h-5 w-5 text-blue-600" />}
+                </div>
+                <div className="text-sm text-muted-foreground">Trend</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

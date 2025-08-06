@@ -21,6 +21,7 @@ import {
 import { dashboardService } from '@/services/api/dashboard.service';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { SubscriptionBanner } from '@/components/subscription-banner';
 
 function getTriageBadge(status: string) {
   const variants: Record<string, { color: string; icon: React.ReactNode }> = {
@@ -143,6 +144,9 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Subscription Banner */}
+      <SubscriptionBanner />
+      
       {/* Welcome Header */}
       <div className="flex justify-between items-start">
         <div>
